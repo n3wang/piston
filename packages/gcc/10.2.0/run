@@ -3,4 +3,9 @@
 # Put instructions to run the runtime
 
 shift # Discard main filename
-./a.out "$@"
+# Unbuffered stdout so cout prompts appear before cin waits (no TTY in isolate).
+if command -v stdbuf >/dev/null 2>&1; then
+    stdbuf -o0 -e0 ./a.out "$@"
+else
+    ./a.out "$@"
+fi

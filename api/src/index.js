@@ -67,6 +67,16 @@ expressWs(app);
     app.use(body_parser.urlencoded({ extended: true }));
     app.use(body_parser.json());
 
+    app.use((req, res, next) => {
+        res.header('Access-Control-Allow-Origin', config.cors_origin);
+        res.header('Access-Control-Allow-Headers', 'Content-Type');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        if (req.method === 'OPTIONS') {
+            return res.sendStatus(204);
+        }
+        next();
+    });
+
     app.use((err, req, res, next) => {
         return res.status(400).send({
             stack: err.stack,

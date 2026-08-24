@@ -17,6 +17,11 @@ const options = {
         default: `0.0.0.0:${process.env['PORT'] || 2000}`,
         validators: [],
     },
+    cors_origin: {
+        desc: 'Value for Access-Control-Allow-Origin (use * to allow lesson-site embeds)',
+        default: '*',
+        validators: [],
+    },
     data_directory: {
         desc: 'Absolute path to store all piston related data at',
         default: '/piston',

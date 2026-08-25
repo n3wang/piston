@@ -18,4 +18,12 @@ cd ..
 
 rm -rf build
 
-bin/pip3 install numpy scipy pandas pycryptodome whoosh bcrypt passlib sympy xxhash base58 cryptography PyNaCl
+bin/pip3 install \
+  numpy scipy pandas sympy \
+  matplotlib pillow seaborn \
+  requests beautifulsoup4 lxml \
+  pycryptodome cryptography PyNaCl bcrypt passlib \
+  whoosh xxhash base58 \
+  pyyaml toml \
+  python-dateutil pytz \
+  tqdm tabulate

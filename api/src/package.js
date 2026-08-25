@@ -145,11 +145,19 @@ class Package {
         await fs.write_file(path.join(this.install_path, '.env'), filtered_env);
 
         logger.debug('Changing Ownership of package directory');
-        await util.promisify(chownr)(
-            this.install_path,
-            process.getuid(),
-            process.getgid()
-        );
+        try {
+            await util.promisify(chownr)(
+                this.install_path,
+                process.getuid(),
+                process.getgid()
+            );
+        } catch (err) {
+            logger.warn(
+                `chown skipped on ${this.install_path}: ${
+                    err && err.message ? err.message : err
+                }`
+            );
+        }
 
         logger.debug('Writing installed state to disk');
         await fs.write_file(

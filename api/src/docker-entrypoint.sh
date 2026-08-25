@@ -24,6 +24,10 @@ cd isolate && \
 mkdir init && \
 echo 1 > init/cgroup.procs && \
 echo '+cpuset +memory' > cgroup.subtree_control && \
-echo "Initialized cgroup" && \
-chown -R piston:piston /piston && \
+echo "Initialized cgroup"
+# Bind-mounted packages on macOS cannot be chowned; skip them so the API can start.
+for d in /piston/*; do
+  [ "$(basename "$d")" = "packages" ] && continue
+  chown -R piston:piston "$d" 2>/dev/null || true
+done
 exec su -- piston -c 'ulimit -n 65536 && node /piston_api/src'

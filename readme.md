@@ -1,8 +1,11 @@
 
-## Setup Locally Mac
+## Setup Locally Mac Windows
 
 
 ```
+
+docker compose down
+
 # Docker Desktop must be running
 cd /Users/nenewang/Documents/GIT/piston
 docker compose up -d api

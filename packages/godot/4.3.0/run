@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 
 # Headless GDScript runner. Main file must extend SceneTree (or MainLoop)
-# and call quit() when finished, e.g.:
-#   extends SceneTree
-#   func _init():
-#       print("OK")
-#       quit()
+# and call quit() when finished.
 #
-# Filter the common missing-libfontconfig warning on minimal API images.
+# Injects game_kit.gd into the submission cwd so lessons can:
+#   var Kit = preload("res://game_kit.gd")
+
+PKG_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "$PKG_DIR/game_kit.gd" && ! -f ./game_kit.gd ]]; then
+	cp "$PKG_DIR/game_kit.gd" ./game_kit.gd
+fi
+
 ERR=$(mktemp)
 godot --headless --no-header --script "$@" 2>"$ERR"
 STATUS=$?

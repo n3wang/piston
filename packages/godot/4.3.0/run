@@ -6,4 +6,11 @@
 #   func _init():
 #       print("OK")
 #       quit()
-godot --headless --no-header --script "$@"
+#
+# Filter the common missing-libfontconfig warning on minimal API images.
+ERR=$(mktemp)
+godot --headless --no-header --script "$@" 2>"$ERR"
+STATUS=$?
+grep -vF 'libfontconfig.so' "$ERR" >&2 || true
+rm -f "$ERR"
+exit $STATUS

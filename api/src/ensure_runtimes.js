@@ -104,6 +104,21 @@ async function ensure_local_package({
 }) {
     const dest = install_path(language, version);
     if (is_installed(language, version)) {
+        const dest = install_path(language, version);
+        try {
+            if (
+                !runtime.get_latest_runtime_matching_language_version(
+                    language,
+                    version
+                )
+            ) {
+                runtime.load_package(dest);
+            }
+        } catch (err) {
+            logger.warn(
+                `Could not reload ${language}=${version}: ${err_msg(err)}`
+            );
+        }
         logger.info(`Already installed (local): ${language}=${version}`);
         return;
     }
@@ -131,8 +146,11 @@ async function ensure_local_package({
         await exec_file('rm', ['-rf', dest]);
     }
     await fs.mkdir(dest, { recursive: true });
-    // Node 15 image has no fs.cp — use system cp.
-    await exec_file('cp', ['-a', `${source}/.`, dest]);
+    // Node 15 image has no fs.cp — tar pipe avoids macOS bind-mount perm issues.
+    await exec_file('bash', [
+        '-c',
+        `tar -C "${source}" -cf - . | tar -C "${dest}" -xf -`,
+    ]);
 
     const meta = JSON.parse(
         await fs.read_file(path.join(dest, 'metadata.json'), 'utf8')
@@ -148,6 +166,12 @@ async function ensure_local_package({
         path.join(dest, globals.pkg_installed_file),
         Date.now().toString()
     );
+    // Ensure piston user can read/execute (source files may be 700 on macOS).
+    try {
+        await exec_file('chmod', ['-R', 'a+rX', dest]);
+    } catch (err) {
+        logger.warn(`chmod on ${dest} failed: ${err_msg(err)}`);
+    }
     runtime.load_package(dest);
     logger.info(`Installed local ${language}=${version}`);
 }

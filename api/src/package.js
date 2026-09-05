@@ -128,9 +128,10 @@ class Package {
             logger.debug(
                 `Copying extracted files in to ${this.install_path}`
             );
+            // Avoid `cp -a` — macOS Docker bind mounts often reject preserving perms.
             await new Promise((resolve, reject) => {
                 const proc = cp.exec(
-                    `bash -c 'cp -a "${tmp_extract}"/. "${this.install_path}"/'`
+                    `bash -c 'tar -C "${tmp_extract}" -cf - . | tar -C "${this.install_path}" -xf -'`
                 );
                 proc.once('exit', (code, _) => {
                     code === 0
@@ -145,6 +146,18 @@ class Package {
                 proc.stderr.pipe(process.stderr);
                 proc.once('error', reject);
             });
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const proc = cp.exec(
+                        `bash -c 'chmod -R a+rX "${this.install_path}"'`
+                    );
+                    proc.once('exit', () => resolve());
+                    proc.once('error', () => resolve());
+                });
+            } catch (_) {
+                /* best-effort */
+            }
         } finally {
             await new Promise(resolve => {
                 const proc = cp.exec(`bash -c 'rm -rf "${tmp_root}"'`);

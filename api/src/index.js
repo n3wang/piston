@@ -8,6 +8,7 @@ const config = require('./config');
 const path = require('path');
 const fs = require('fs/promises');
 const fss = require('fs');
+const cp = require('child_process');
 const body_parser = require('body-parser');
 const runtime = require('./runtime');
 
@@ -58,7 +59,22 @@ expressWs(app);
             fss.exists_sync(path.join(pkg, globals.pkg_installed_file))
         );
 
-    installed_languages.for_each(pkg => runtime.load_package(pkg));
+    for (const pkg of installed_languages) {
+        try {
+            // Packages copied on macOS may be mode 700; open them up for the piston user.
+            try {
+                cp.exec_sync(`chmod -R a+rX "${pkg}"`, { stdio: 'ignore' });
+            } catch (_) {
+                /* best-effort */
+            }
+            runtime.load_package(pkg);
+        } catch (err) {
+            logger.error(
+                `Failed to load package ${pkg}:`,
+                (err && err.message) || err
+            );
+        }
+    }
 
     const { ensure_learn_runtimes } = require('./ensure_runtimes');
     try {

@@ -3,8 +3,8 @@
     "version": "4.3.0",
     "aliases": ["gdscript", "gd"],
     "limit_overrides": {
-        "run_timeout": 15000,
-        "run_cpu_time": 15000,
+        "run_timeout": 20000,
+        "run_cpu_time": 20000,
         "max_process_count": 128
     }
 }

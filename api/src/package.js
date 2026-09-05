@@ -42,67 +42,116 @@ class Package {
 
         logger.info(`Installing ${this.language}-${this.version.raw}`);
 
-        if (fss.exists_sync(this.install_path)) {
-            logger.warn(
-                `${this.language}-${this.version.raw} has residual files. Removing them.`
-            );
-            await fs.rm(this.install_path, { recursive: true, force: true });
-        }
-
-        logger.debug(`Making directory ${this.install_path}`);
-        await fs.mkdir(this.install_path, { recursive: true });
-
-        logger.debug(
-            `Downloading package from ${this.download} in to ${this.install_path}`
+        const tmp_root = path.join(
+            '/tmp',
+            `piston-pkg-${this.language}-${this.version.raw}-${Date.now()}`
         );
-        const pkgpath = path.join(this.install_path, 'pkg.tar.gz');
-        const download = await fetch(this.download);
+        const tmp_extract = path.join(tmp_root, 'extract');
+        const pkgpath = path.join(tmp_root, 'pkg.tar.gz');
 
-        const file_stream = fss.create_write_stream(pkgpath);
-        await new Promise((resolve, reject) => {
-            download.body.pipe(file_stream);
-            download.body.on('error', reject);
+        await fs.mkdir(tmp_extract, { recursive: true });
 
-            file_stream.on('finish', resolve);
-        });
-
-        logger.debug('Validating checksums');
-        logger.debug(`Assert sha256(pkg.tar.gz) == ${this.checksum}`);
-        const hash = crypto.create_hash('sha256');
-
-        const read_stream = fss.create_read_stream(pkgpath);
-        await new Promise((resolve, reject) => {
-            read_stream.on('data', chunk => hash.update(chunk));
-            read_stream.on('end', () => resolve());
-            read_stream.on('error', error => reject(error));
-        });
-
-        const cs = hash.digest('hex');
-
-        if (cs !== this.checksum) {
-            throw new Error(
-                `Checksum miss-match want: ${this.checksum} got: ${cs}`
+        try {
+            logger.debug(
+                `Downloading package from ${this.download} to ${pkgpath}`
             );
-        }
+            const download = await fetch(this.download);
 
-        logger.debug(
-            `Extracting package files from archive ${pkgpath} in to ${this.install_path}`
-        );
-
-        await new Promise((resolve, reject) => {
-            const proc = cp.exec(
-                `bash -c 'cd "${this.install_path}" && tar xzf ${pkgpath}'`
-            );
-
-            proc.once('exit', (code, _) => {
-                code === 0 ? resolve() : reject();
+            const file_stream = fss.create_write_stream(pkgpath);
+            await new Promise((resolve, reject) => {
+                download.body.pipe(file_stream);
+                download.body.on('error', reject);
+                file_stream.on('finish', resolve);
             });
 
-            proc.stdout.pipe(process.stdout);
-            proc.stderr.pipe(process.stderr);
+            logger.debug('Validating checksums');
+            logger.debug(`Assert sha256(pkg.tar.gz) == ${this.checksum}`);
+            const hash = crypto.create_hash('sha256');
 
-            proc.once('error', reject);
-        });
+            const read_stream = fss.create_read_stream(pkgpath);
+            await new Promise((resolve, reject) => {
+                read_stream.on('data', chunk => hash.update(chunk));
+                read_stream.on('end', () => resolve());
+                read_stream.on('error', error => reject(error));
+            });
+
+            const cs = hash.digest('hex');
+
+            if (cs !== this.checksum) {
+                throw new Error(
+                    `Checksum miss-match want: ${this.checksum} got: ${cs}`
+                );
+            }
+
+            logger.debug(`Extracting package archive to ${tmp_extract}`);
+            await new Promise((resolve, reject) => {
+                const proc = cp.exec(
+                    `bash -c 'tar xzf "${pkgpath}" -C "${tmp_extract}"'`
+                );
+                proc.once('exit', (code, _) => {
+                    code === 0
+                        ? resolve()
+                        : reject(
+                              new Error(
+                                  `Failed to extract package archive (exit ${code})`
+                              )
+                          );
+                });
+                proc.stdout.pipe(process.stdout);
+                proc.stderr.pipe(process.stderr);
+                proc.once('error', reject);
+            });
+
+            if (fss.exists_sync(this.install_path)) {
+                logger.warn(
+                    `${this.language}-${this.version.raw} has residual files. Removing them.`
+                );
+                await new Promise((resolve, reject) => {
+                    const proc = cp.exec(
+                        `bash -c 'chmod -R u+w "${this.install_path}" 2>/dev/null; rm -rf "${this.install_path}"'`
+                    );
+                    proc.once('exit', (code, _) => {
+                        code === 0
+                            ? resolve()
+                            : reject(
+                                  new Error(
+                                      `Failed to remove residual package dir (exit ${code})`
+                                  )
+                              );
+                    });
+                    proc.once('error', reject);
+                });
+            }
+
+            await fs.mkdir(this.install_path, { recursive: true });
+
+            logger.debug(
+                `Copying extracted files in to ${this.install_path}`
+            );
+            await new Promise((resolve, reject) => {
+                const proc = cp.exec(
+                    `bash -c 'cp -a "${tmp_extract}"/. "${this.install_path}"/'`
+                );
+                proc.once('exit', (code, _) => {
+                    code === 0
+                        ? resolve()
+                        : reject(
+                              new Error(
+                                  `Failed to copy extracted package (exit ${code})`
+                              )
+                          );
+                });
+                proc.stdout.pipe(process.stdout);
+                proc.stderr.pipe(process.stderr);
+                proc.once('error', reject);
+            });
+        } finally {
+            await new Promise(resolve => {
+                const proc = cp.exec(`bash -c 'rm -rf "${tmp_root}"'`);
+                proc.once('exit', () => resolve());
+                proc.once('error', () => resolve());
+            });
+        }
 
         logger.debug('Registering runtime');
         runtime.load_package(this.install_path);
@@ -122,7 +171,9 @@ class Package {
             );
 
             proc.once('exit', (code, _) => {
-                code === 0 ? resolve(stdout) : reject();
+                code === 0
+                    ? resolve(stdout)
+                    : reject(new Error(`Failed to capture package env (exit ${code})`));
             });
 
             proc.stdout.on('data', data => {

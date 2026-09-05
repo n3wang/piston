@@ -14,6 +14,12 @@ const exec_file = util.promisify(cp.exec_file);
 const MANIFEST_PATH = path.join(__dirname, 'learn_runtimes.json');
 const PIP_MARKER = '.learn-pip-installed';
 
+function err_msg(err) {
+    if (!err) return 'unknown error';
+    if (typeof err === 'string') return err;
+    return err.message || String(err);
+}
+
 function packages_root() {
     return path.join(
         config.data_directory,
@@ -31,24 +37,21 @@ function is_installed(language, version) {
     );
 }
 
-function already_loaded(language, version) {
-    return !!runtime.get_latest_runtime_matching_language_version(
-        language,
-        version
-    );
-}
-
 async function ensure_repo_package({ language, version }) {
     if (is_installed(language, version)) {
-        if (!already_loaded(language, version) && !already_loaded(language, '*')) {
-            // Package on disk but not loaded (e.g. local copy) — load it.
-            const pkgdir = install_path(language, version);
-            if (fss.exists_sync(path.join(pkgdir, 'pkg-info.json'))) {
-                runtime.load_package(pkgdir);
-            }
-        }
         logger.info(`Already installed: ${language}=${version}`);
         return;
+    }
+
+    // Clear partial failed installs (common on macOS bind mounts).
+    const dest = install_path(language, version);
+    if (fss.exists_sync(dest)) {
+        logger.warn(`Removing incomplete ${language}=${version} at ${dest}`);
+        try {
+            await exec_file('rm', ['-rf', dest]);
+        } catch (err) {
+            logger.warn(`Could not clear ${dest}: ${err_msg(err)}`);
+        }
     }
 
     logger.info(`Installing ${language}=${version} from package repo…`);
@@ -75,7 +78,9 @@ async function write_env_file(pkgdir) {
             stdout += data;
         });
         proc.once('exit', code => {
-            code === 0 ? resolve(stdout) : reject(new Error('env failed'));
+            code === 0
+                ? resolve(stdout)
+                : reject(new Error('env failed'));
         });
         proc.once('error', reject);
     });
@@ -122,7 +127,9 @@ async function ensure_local_package({
 
     logger.info(`Installing local ${language}=${version} from ${source}`);
     await fs.mkdir(path.dirname(dest), { recursive: true });
-    await fs.rm(dest, { recursive: true, force: true });
+    if (fss.exists_sync(dest)) {
+        await exec_file('rm', ['-rf', dest]);
+    }
     await fs.mkdir(dest, { recursive: true });
     // Node 15 image has no fs.cp — use system cp.
     await exec_file('cp', ['-a', `${source}/.`, dest]);
@@ -146,7 +153,6 @@ async function ensure_local_package({
 }
 
 function python_pkg_dir() {
-    // Prefer exact 3.12.0; fall back to any installed python runtime dir.
     const exact = install_path('python', '3.12.0');
     if (fss.exists_sync(path.join(exact, globals.pkg_installed_file))) {
         return exact;
@@ -183,7 +189,6 @@ function python_bin(pkgdir) {
 async function missing_pip_modules(py, modules) {
     const missing = [];
     for (const mod of modules) {
-        // Import name can differ from pip name (pillow -> PIL, beautifulsoup4 -> bs4, pyyaml -> yaml)
         const import_name =
             {
                 pillow: 'PIL',
@@ -275,24 +280,25 @@ async function ensure_learn_runtimes() {
 
     const manifest = JSON.parse(await fs.read_file(MANIFEST_PATH, 'utf8'));
 
-    for (const pkg of manifest.packages || []) {
-        try {
-            await ensure_repo_package(pkg);
-        } catch (err) {
-            logger.error(
-                `Failed to ensure ${pkg.language}=${pkg.version}:`,
-                err.message || err
-            );
-        }
-    }
-
+    // Local packages first (godot) so a failed repo install cannot skip them.
     for (const pkg of manifest.local_packages || []) {
         try {
             await ensure_local_package(pkg);
         } catch (err) {
             logger.error(
                 `Failed to ensure local ${pkg.language}=${pkg.version}:`,
-                err.message || err
+                err_msg(err)
+            );
+        }
+    }
+
+    for (const pkg of manifest.packages || []) {
+        try {
+            await ensure_repo_package(pkg);
+        } catch (err) {
+            logger.error(
+                `Failed to ensure ${pkg.language}=${pkg.version}:`,
+                err_msg(err)
             );
         }
     }
@@ -300,7 +306,7 @@ async function ensure_learn_runtimes() {
     try {
         await ensure_python_libs(manifest.python_pip || []);
     } catch (err) {
-        logger.error('Failed to ensure Python libs:', err.message || err);
+        logger.error('Failed to ensure Python libs:', err_msg(err));
     }
 }
 

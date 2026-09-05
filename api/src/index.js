@@ -64,7 +64,10 @@ expressWs(app);
     try {
         await ensure_learn_runtimes();
     } catch (err) {
-        logger.error('ensure_learn_runtimes failed:', err.message || err);
+        logger.error(
+            'ensure_learn_runtimes failed:',
+            (err && err.message) || err || 'unknown error'
+        );
     }
 
     logger.info('Starting API Server');

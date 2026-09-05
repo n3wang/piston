@@ -125,6 +125,13 @@ const options = {
             'https://github.com/engineer-man/piston/releases/download/pkgs/index',
         validators: [],
     },
+    ensure_learn_runtimes: {
+        desc: 'On startup, auto-install learn-programming languages + Python libs',
+        default: true,
+        parser: x =>
+            x === 'true' || x === '1' || String(x).toLowerCase() === 'yes',
+        validators: [x => typeof x === 'boolean' || `${x} is not a boolean`],
+    },
     max_concurrent_jobs: {
         desc: 'Maximum number of concurrent jobs to run at one time',
         default: 64,

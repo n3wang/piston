@@ -11,11 +11,15 @@ services:
         volumes:
             - ./data/piston/packages:/piston/packages
             - ./api/src:/piston_api/src
+            # Local package sources (e.g. godot after ./packages/godot/4.3.0/build.sh)
+            - ./packages:/piston/package-sources:ro
         environment:
             # Interactive cin + matplotlib import both need more than the 3s default.
             - PISTON_RUN_TIMEOUT=20000
             - PISTON_RUN_CPU_TIME=15000
             - PISTON_OUTPUT_MAX_SIZE=250000
             - PISTON_MAX_FILE_SIZE=15000000
+            # Auto-install python/java/gcc (+ pip libs) and local godot on startup
+            - PISTON_ENSURE_LEARN_RUNTIMES=true
         tmpfs:
             - /tmp:exec

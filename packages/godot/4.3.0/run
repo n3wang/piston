@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# Headless GDScript runner. Main file must extend SceneTree (or MainLoop)
+# and call quit() when finished, e.g.:
+#   extends SceneTree
+#   func _init():
+#       print("OK")
+#       quit()
+godot --headless --no-header --script "$@"

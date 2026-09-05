@@ -5,6 +5,12 @@
 		},
 		{
 			"path": "../learn-programming"
+		},
+		{
+			"path": "../apinet"
+		},
+		{
+			"path": "../maid-cli"
 		}
 	],
 	"settings": {}

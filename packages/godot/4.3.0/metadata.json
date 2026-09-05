@@ -1,0 +1,10 @@
+{
+    "language": "godot",
+    "version": "4.3.0",
+    "aliases": ["gdscript", "gd"],
+    "limit_overrides": {
+        "run_timeout": 15000,
+        "run_cpu_time": 15000,
+        "max_process_count": 128
+    }
+}

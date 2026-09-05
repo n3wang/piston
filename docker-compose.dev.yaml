@@ -10,8 +10,15 @@ services:
             - 2000:2000
         volumes:
             - ./data/piston/packages:/piston/packages
+            - ./api/src:/piston_api/src
+            - ./packages:/piston/package-sources:ro
         environment:
             - PISTON_REPO_URL=http://repo:8000/index
+            - PISTON_RUN_TIMEOUT=20000
+            - PISTON_RUN_CPU_TIME=15000
+            - PISTON_OUTPUT_MAX_SIZE=250000
+            - PISTON_MAX_FILE_SIZE=15000000
+            - PISTON_ENSURE_LEARN_RUNTIMES=true
 
     repo: # Local testing of packages
         build: repo

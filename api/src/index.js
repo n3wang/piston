@@ -60,6 +60,13 @@ expressWs(app);
 
     installed_languages.for_each(pkg => runtime.load_package(pkg));
 
+    const { ensure_learn_runtimes } = require('./ensure_runtimes');
+    try {
+        await ensure_learn_runtimes();
+    } catch (err) {
+        logger.error('ensure_learn_runtimes failed:', err.message || err);
+    }
+
     logger.info('Starting API Server');
     logger.debug('Constructing Express App');
     logger.debug('Registering middleware');

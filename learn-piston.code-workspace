@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "../maid-cli"
+		},
+		{
+			"path": "../dailycode"
 		}
 	],
 	"settings": {}
